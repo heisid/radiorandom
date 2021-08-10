@@ -12,4 +12,5 @@ Depedencies:
 Todo:
 
 - Volume
+- Tray
 - Prettify UI 
