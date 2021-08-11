@@ -8,8 +8,10 @@ Depedencies:
 
 - gstreamer
 - PyGObject
+- PyQt5
 
 Todo:
 
 - Volume
+- Tray
 - Prettify UI 

@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
+import sys
 from Connector import Connector
 from Player import Player
 import random
-import tkinter as tk
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+
 
 c = Connector()
 p = Player()
@@ -18,34 +21,61 @@ def randomize():
 
     p.set_url(random_station_url)
     p.play()
-    station_info = f"{random_station['station_name']} in {random_city['city_name']}, {random_city['country']}"
-    station_lbl.config(text=station_info)
+    station_info = f"Now Playing:\n{random_station['station_name']}\n\n{random_city['city_name']}\n{random_city['country']}"
+    info_lbl.setText(station_info)
 
 def toggle_play():
     if p.playing:
         p.stop()
-        play_btn.config(text='Play')
+        play_btn.setText('Play')
     else:
         p.play()
-        play_btn.config(text='Stop')
+        play_btn.setText('Stop')
 
-window = tk.Tk()
-window.title('Radio Random')
-window.minsize(300, 150)
+def show_window():
+    window.show()
 
-play_frm = tk.Frame(master=window, relief=tk.RIDGE, borderwidth=2)
-play_frm.pack(fill=tk.BOTH, expand=True)
-info_frm = tk.Frame(master=window, relief=tk.RIDGE, borderwidth=2)
-info_frm.pack(fill=tk.BOTH, expand=True)
+app = QApplication(sys.argv)
+app.setApplicationName('Radio Random')
 
-next_btn = tk.Button(master=play_frm, text='Next Station', command=randomize)
-next_btn.pack(side=tk.LEFT)
-play_btn = tk.Button(master=play_frm, text='Stop', command=toggle_play)
-play_btn.pack(side=tk.LEFT)
-station_lbl = tk.Label(master=info_frm, text='')
-station_lbl.pack()
+window = QWidget()
+window.setWindowTitle('Radio Random')
+window.setFixedSize(400, 200)
 
-randomize()
-window.mainloop()
+play_btn = QPushButton('Stop')
+play_btn.clicked.connect(toggle_play)
 
+next_btn = QPushButton('Next Station')
+next_btn.clicked.connect(randomize)
 
+info_lbl = QLabel('')
+
+layout = QGridLayout()
+layout.addWidget(play_btn, 0, 0)
+layout.addWidget(next_btn, 0, 1)
+layout.addWidget(info_lbl, 1, 0, 1, 1)
+
+window.setLayout(layout)
+show_window()
+
+app.setQuitOnLastWindowClosed(False)
+icon = QIcon('icon.png')
+tray = QSystemTrayIcon()
+tray.setIcon(icon)
+tray.setVisible(True)
+menu = QMenu()
+show_mnu = QAction('Show Window')
+show_mnu.triggered.connect(show_window)
+menu.addAction(show_mnu)
+next_mnu = QAction('Next')
+next_mnu.triggered.connect(randomize)
+menu.addAction(next_mnu)
+play_mnu = QAction('Play/Stop')
+play_mnu.triggered.connect(toggle_play)
+menu.addAction(play_mnu)
+exit_mnu = QAction('Exit')
+exit_mnu.triggered.connect(app.quit)
+menu.addAction(exit_mnu)
+tray.setContextMenu(menu)
+
+sys.exit(app.exec_())
