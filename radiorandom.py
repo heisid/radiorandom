@@ -6,6 +6,8 @@ from Player import Player
 import random
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
+import os
+from os.path import exists
 
 
 c = Connector()
@@ -23,6 +25,7 @@ def randomize():
     p.play()
     station_info = f"Now Playing:\n{random_station['station_name']}\n\n{random_city['city_name']}\n{random_city['country']}"
     info_lbl.setText(station_info)
+    tray.setToolTip(station_info)
 
 def toggle_play():
     if p.playing:
@@ -35,8 +38,20 @@ def toggle_play():
 def show_window():
     window.show()
 
+def clean_lockfile():
+    os.remove('radiorandom.lock')
+
 app = QApplication(sys.argv)
 app.setApplicationName('Radio Random')
+
+# File lock
+if exists('radiorandom.lock'):
+    already_run_dlg = QMessageBox()
+    already_run_dlg.setIcon(QMessageBox.Critical)
+    already_run_dlg.setText('Error')
+    already_run_dlg.setInformativeText('Radio Random is still running. If it is not, delete radiorandom.lock')
+    sys.exit(already_run_dlg.exec_())
+open('radiorandom.lock', 'w').close()
 
 window = QWidget()
 window.setWindowTitle('Radio Random')
@@ -78,4 +93,7 @@ exit_mnu.triggered.connect(app.quit)
 menu.addAction(exit_mnu)
 tray.setContextMenu(menu)
 
+randomize()
+
+app.aboutToQuit.connect(clean_lockfile)
 sys.exit(app.exec_())
