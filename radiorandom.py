@@ -34,6 +34,15 @@ class RadioRandomWindow(QMainWindow):
         self.layout.addWidget(self.play_btn, 0, 0)
         self.layout.addWidget(self.next_btn, 0, 1)
         self.layout.addWidget(self.info_lbl, 1, 0, 1, 1)
+        menu_bar = QMenuBar(self)
+        self.setMenuBar(menu_bar)
+        options_mnu = QMenu('Options', self)
+        menu_bar.addMenu(options_mnu)
+        self.exit_mnu = QAction('Exit', self)
+        options_mnu.addAction(self.exit_mnu)
+
+    def assign_exit_mnu(self, action: Callable) -> None:
+        self.exit_mnu.triggered.connect(action)
 
     def assign_play_btn(self, action: Callable) -> None:
         self.play_btn.clicked.connect(action)
@@ -98,6 +107,7 @@ class Controller():
     def widget_assign(self) -> None:
         self.window.assign_next_btn(self.randomize)
         self.window.assign_play_btn(self.toggle_play)
+        self.window.assign_exit_mnu(qApp.quit)
 
     def tray_assign(self) -> None:
         self.window.assign_play_tray(self.randomize)
