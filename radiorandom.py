@@ -1,99 +1,162 @@
 #!/usr/bin/env python
 
-import sys
-from Connector import Connector
-from Player import Player
-import random
+from sys import exit, argv
+from os import remove
+from os.path import exists
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
-import os
-from os.path import exists
+from Connector import Connector
+from Player import Player
+from random import choice
+from typing import Callable
 
 
-c = Connector()
-p = Player()
+__version__ = '0.1'
+__author__ = 'Sid'
 
-def randomize():
-    if p.playing:
-        p.stop()
-    random_city = random.choice(c.cities_cache)
-    stations = c.get_stations(random_city['city_id'])
-    random_station = random.choice(stations)
-    random_station_url = c.get_stream_url(random_station['station_id'])
 
-    p.set_url(random_station_url)
-    p.play()
-    station_info = f"Now Playing:\n{random_station['station_name']}\n\n{random_city['city_name']}\n{random_city['country']}"
-    info_lbl.setText(station_info)
-    tray.setToolTip(station_info)
+class RadioRandomWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('Radio Random')
+        self.setFixedSize(400, 150)
+        self.layout = QGridLayout()
+        central_widget = QWidget(self) # I don't understand this
+        self.setCentralWidget(central_widget) # I don't understand this
+        central_widget.setLayout(self.layout) # I don't understand this
+        self.create_widget()
+        self.create_tray()
 
-def toggle_play():
-    if p.playing:
-        p.stop()
-        play_btn.setText('Play')
-    else:
-        p.play()
-        play_btn.setText('Stop')
+    def create_widget(self) -> None:
+        self.play_btn = QPushButton('Stop')
+        self.next_btn = QPushButton('Next')
+        self.info_lbl = QLabel('')
+        self.layout.addWidget(self.play_btn, 0, 0)
+        self.layout.addWidget(self.next_btn, 0, 1)
+        self.layout.addWidget(self.info_lbl, 1, 0, 1, 1)
 
-def show_window():
-    window.show()
+    def assign_play_btn(self, action: Callable) -> None:
+        self.play_btn.clicked.connect(action)
+    
+    def assign_next_btn(self, action: Callable) -> None:
+        self.next_btn.clicked.connect(action)
 
-def clean_lockfile():
-    os.remove('radiorandom.lock')
+    def set_play_state(self, is_playing: bool) -> None:
+        if is_playing:
+            self.play_btn.setText('Stop')
+        else:
+            self.play_btn.setText('Play')
+    
+    def set_info_text(self, info: str) -> None:
+        self.info_lbl.setText(info)
 
-app = QApplication(sys.argv)
-app.setApplicationName('Radio Random')
+    def create_tray(self) -> None:
+        icon = QIcon('icon.png')
+        self.tray = QSystemTrayIcon()
+        self.tray.setIcon(icon)
+        self.tray.setVisible(True)
+        self.tray_mnu = QMenu()
+        self.show_tray_mnu = QAction('Show Window')
+        self.tray_mnu.addAction(self.show_tray_mnu)
+        self.play_tray_mnu = QAction('Play/Stop')
+        self.tray_mnu.addAction(self.play_tray_mnu)
+        self.next_tray_mnu = QAction('Next')
+        self.tray_mnu.addAction(self.next_tray_mnu)
+        self.exit_tray_mnu = QAction('Exit')
+        self.tray_mnu.addAction(self.exit_tray_mnu)
+        self.tray.setContextMenu(self.tray_mnu)
 
-# File lock
-if exists('radiorandom.lock'):
-    already_run_dlg = QMessageBox()
-    already_run_dlg.setIcon(QMessageBox.Critical)
-    already_run_dlg.setText('Error')
-    already_run_dlg.setInformativeText('Radio Random is still running. If it is not, delete radiorandom.lock')
-    sys.exit(already_run_dlg.exec_())
-open('radiorandom.lock', 'w').close()
+    def assign_play_tray(self, action: Callable) -> None:
+        self.play_tray_mnu.triggered.connect(action)
 
-window = QWidget()
-window.setWindowTitle('Radio Random')
-window.setFixedSize(400, 200)
+    def assign_next_tray(self, action: Callable) -> None:
+        self.next_tray_mnu.triggered.connect(action)
 
-play_btn = QPushButton('Stop')
-play_btn.clicked.connect(toggle_play)
+    def assign_show_tray(self, action: Callable) -> None:
+        self.show_tray_mnu.triggered.connect(action)
+    
+    def assign_exit_tray(self, action: Callable) -> None:
+        self.exit_tray_mnu.triggered.connect(action)
 
-next_btn = QPushButton('Next Station')
-next_btn.clicked.connect(randomize)
+    def set_tray_tooltip(self, text: str) -> None:
+        self.tray.setToolTip(text)
 
-info_lbl = QLabel('')
+    # Override
+    def closeEvent(self, event) -> None:
+        event.ignore()
+        self.hide()
 
-layout = QGridLayout()
-layout.addWidget(play_btn, 0, 0)
-layout.addWidget(next_btn, 0, 1)
-layout.addWidget(info_lbl, 1, 0, 1, 1)
+class Controller():
+    def __init__(self, window, connector, player):
+        self.window = window
+        self.connector = connector
+        self.player = player
+        self.widget_assign()
+        self.tray_assign()
+        self.run()
 
-window.setLayout(layout)
-show_window()
+    def widget_assign(self) -> None:
+        self.window.assign_next_btn(self.randomize)
+        self.window.assign_play_btn(self.toggle_play)
 
-app.setQuitOnLastWindowClosed(False)
-icon = QIcon('icon.png')
-tray = QSystemTrayIcon()
-tray.setIcon(icon)
-tray.setVisible(True)
-menu = QMenu()
-show_mnu = QAction('Show Window')
-show_mnu.triggered.connect(show_window)
-menu.addAction(show_mnu)
-next_mnu = QAction('Next')
-next_mnu.triggered.connect(randomize)
-menu.addAction(next_mnu)
-play_mnu = QAction('Play/Stop')
-play_mnu.triggered.connect(toggle_play)
-menu.addAction(play_mnu)
-exit_mnu = QAction('Exit')
-exit_mnu.triggered.connect(app.quit)
-menu.addAction(exit_mnu)
-tray.setContextMenu(menu)
+    def tray_assign(self) -> None:
+        self.window.assign_play_tray(self.randomize)
+        self.window.assign_next_tray(self.toggle_play)
+        self.window.assign_show_tray(self.window.show)
+        self.window.assign_exit_tray(qApp.quit)
 
-randomize()
+    def randomize(self) -> None:
+        if self.player.playing:
+            self.player.stop()
+        
+        random_city = choice(connector.cities_cache)
+        stations = connector.get_stations(random_city['city_id'])
+        random_station = choice(stations)
+        random_station_url = connector.get_stream_url(
+                random_station['station_id'])
+        self.player.set_url(random_station_url)
+        self.player.play()
+        station_info = f"Now Playing:\n{random_station['station_name']}\n\n{random_city['city_name']}\n{random_city['country']}"
+                
+        self.window.set_info_text(station_info)
+        self.window.set_tray_tooltip(station_info)
 
-app.aboutToQuit.connect(clean_lockfile)
-sys.exit(app.exec_())
+    def toggle_play(self) -> None:
+        if self.player.playing:
+            self.player.stop()
+            self.window.set_play_state(True)
+        else:
+            self.player.play()
+            self.window.set_play_state(False)
+
+    def run(self) -> None:
+        self.window.show()
+        self.randomize()
+
+
+def check_lock():
+    if exists('radiorandom.lock'):
+        warning_dlg = QMessageBox()
+        warning_dlg.setText(
+                'Radio Random is still running.\nIf it is not, delete radiorandom.lock')
+        exit(warning_dlg.exec_())
+    open('radiorandom.lock', 'w').close()
+
+def lock_clean():
+    remove('radiorandom.lock')
+
+
+if __name__ == '__main__':
+    app = QApplication(argv)
+    app.setApplicationName('Radio Random')
+
+    check_lock()
+
+    connector = Connector()
+    player = Player()
+    window = RadioRandomWindow()
+    controller = Controller(window, connector, player)
+    controller.run()
+
+    app.aboutToQuit.connect(lock_clean)
+    exit(app.exec_())
